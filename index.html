@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laser-LDR Turbidity Tester - A Water Purity Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS (inherited from the source deck) ============ */
+:root{
+  --color-bg:oklch(0.98 0.006 210);
+  --color-bg-dark:oklch(0.24 0.045 235);
+  --color-text:oklch(0.24 0.03 240);
+  --color-text-soft:oklch(0.45 0.02 240);
+  --color-on-dark:oklch(0.97 0.008 210);
+  --color-on-dark-soft:oklch(0.78 0.02 215);
+  --color-teal:oklch(0.62 0.13 190);
+  --color-blue:oklch(0.52 0.15 258);
+  --color-teal-light:oklch(0.94 0.028 190);
+  --color-blue-light:oklch(0.94 0.028 258);
+  --color-warn:oklch(0.72 0.14 65);
+  --color-line:oklch(0.85 0.015 220);
+  --font-head:'Space Grotesk',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  --edge:120px;
+}
+@media (max-width:900px){ :root{ --edge:28px; } }
+
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{
+  margin:0; background:var(--color-bg); color:var(--color-text);
+  font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+}
+html{ overflow-x:clip; }
+h1,h2,h3{ font-family:var(--font-head); margin:0; }
+p{ margin:0; }
+::selection{ background:var(--color-teal); color:var(--color-bg-dark); }
+
+/* faint graph-paper ground - the "lab notebook" motif that runs the length of the page */
+body{
+  background-image:
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size:56px 56px;
+  background-position:-1px -1px;
+}
+body::before{
+  content:"";
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:var(--color-bg);
+  opacity:1;
+}
+section{
+  position:relative; background-color:var(--color-bg);
+  min-height:100vh; min-height:100svh;
+  display:flex; flex-direction:column;
+}
+section.on-dark{ background-color:var(--color-bg-dark); background-image:
+    linear-gradient(oklch(0.4 0.03 235) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.4 0.03 235) 1px, transparent 1px);
+  background-size:56px 56px; }
+section.on-tint{ background-color:var(--color-teal-light); }
+section.on-tint-b{ background-color:var(--color-blue-light); }
+
+/* ============ progress rail (top) ============ */
+#progress{
+  position:fixed; top:0; left:0; height:3px; width:0%;
+  background:linear-gradient(90deg,var(--color-teal),var(--color-blue));
+  z-index:60; transition:width .08s linear;
+}
+
+/* ============ numbered side nav ============ */
+#railnav{
+  position:fixed; right:34px; top:50%; transform:translateY(-50%);
+  z-index:55; display:flex; flex-direction:column; gap:14px;
+  font-family:var(--font-mono);
+}
+#railnav button{
+  all:unset; cursor:pointer; display:flex; align-items:center; gap:10px;
+  color:var(--color-text-soft); font-size:11px; letter-spacing:.06em;
+}
+#railnav .dot{
+  width:7px; height:7px; border-radius:50%; background:var(--color-line);
+  transition:background .25s, transform .25s; flex:0 0 auto;
+}
+#railnav button[data-active="true"] .dot{ background:var(--color-teal); transform:scale(1.5); }
+#railnav button[data-active="true"]{ color:var(--color-teal); }
+#railnav .lbl{
+  opacity:0; transform:translateX(6px); transition:opacity .2s, transform .2s;
+  white-space:nowrap; background:var(--color-bg-dark); color:var(--color-on-dark);
+  padding:3px 8px; border-radius:4px;
+}
+#railnav button:hover .lbl{ opacity:1; transform:translateX(0); }
+@media (max-width:900px){ #railnav{ display:none; } }
+
+/* ============ reveal-on-scroll ============ */
+[data-reveal]{
+  opacity:0; transform:translateY(34px);
+  transition:opacity .8s cubic-bezier(.16,.8,.24,1), transform .8s cubic-bezier(.16,.8,.24,1);
+}
+[data-reveal].in{ opacity:1; transform:translateY(0); }
+
+/* ============ shared type scale ============ */
+.eyebrow{
+  font-family:var(--font-mono); font-size:13px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--color-blue); display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{ content:""; width:22px; height:1px; background:var(--color-blue); }
+.on-dark .eyebrow, .on-dark .eyebrow::before{ color:var(--color-teal); background:var(--color-teal); }
+h2.h-sec{ font-size:clamp(30px,4vw,46px); font-weight:700; line-height:1.08; max-width:16ch; }
+.on-dark h2.h-sec{ color:var(--color-on-dark); }
+.wrap{
+  max-width:1280px; margin:0 auto; width:100%;
+  padding:96px var(--edge) 70px;
+  flex:1; display:flex; flex-direction:column;
+}
+/* body content sits below the heading and fills whatever vertical space is
+   left in the 100vh section, centering itself there - this keeps the
+   eyebrow/heading pinned at a consistent height across every section
+   instead of drifting depending on how much body content follows it. */
+.fill-below{ flex:1; margin-top:44px; align-content:center; justify-content:center; }
+
+/* ============ HERO ============ */
+#hero{
+  min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+  perspective:1400px; overflow:hidden;
+}
+#hero .scene{ position:relative; z-index:1; padding:0 var(--edge); transform-style:preserve-3d; }
+#hero .field{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+#hero .glow{
+  position:absolute; top:50%; left:34%; width:1100px; height:1100px; transform:translate(-50%,-50%);
+  border-radius:50%; background:radial-gradient(circle, oklch(0.42 0.09 200 / .55), transparent 62%);
+}
+#hero .sweep{ position:absolute; left:-20%; width:140%; height:2px;
+  background:linear-gradient(90deg,transparent,var(--color-teal),transparent); }
+.kicker{ display:flex; align-items:center; gap:16px; margin-bottom:34px; }
+.kicker .diamond{ width:34px; height:34px; border-radius:50% 50% 50% 0; background:var(--color-teal); transform:rotate(45deg); }
+.kicker .beamline{ width:110px; height:2px; background:linear-gradient(90deg,var(--color-blue),transparent); position:relative; }
+.kicker .beamline::before{ content:""; position:absolute; left:0; top:50%; width:10px; height:10px; margin-top:-5px; border-radius:50%; background:var(--color-blue); box-shadow:0 0 10px 2px var(--color-blue); }
+.kicker span{ font-family:var(--font-mono); font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--color-on-dark-soft); }
+#hero h1{
+  color:var(--color-on-dark); font-weight:700; font-style:italic; letter-spacing:-.01em;
+  font-size:clamp(44px,8.4vw,108px); line-height:1.0; margin-bottom:26px;
+}
+#hero h1 small{
+  display:block; font-style:normal; font-weight:500; color:var(--color-teal);
+  font-size:.36em; letter-spacing:0; margin-top:16px; font-family:var(--font-body);
+}
+#hero .dek{ font-size:clamp(17px,2vw,22px); color:var(--color-on-dark-soft); max-width:46ch; margin-bottom:56px; }
+#hero .meta{ display:flex; gap:64px; border-top:1px solid oklch(0.4 0.03 235); padding-top:26px; flex-wrap:wrap; }
+#hero .meta div span{ display:block; }
+#hero .meta .k{ font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--color-on-dark-soft); margin-bottom:6px; }
+#hero .meta .v{ color:var(--color-on-dark); font-size:16px; font-weight:500; }
+#scrollcue{
+  position:absolute; bottom:38px; left:var(--edge); display:flex; align-items:center; gap:10px;
+  color:var(--color-on-dark-soft); font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+}
+#scrollcue .chev{ width:8px; height:8px; border-right:1.5px solid var(--color-teal); border-bottom:1.5px solid var(--color-teal); transform:rotate(45deg); animation:chevbounce 1.8s ease-in-out infinite; }
+@keyframes chevbounce{ 0%,100%{ transform:translateY(0) rotate(45deg); opacity:.4;} 50%{ transform:translateY(6px) rotate(45deg); opacity:1;} }
+
+/* ============ PROBLEM ============ */
+#problem .grid{ display:grid; grid-template-columns:0.9fr 1.1fr; gap:80px; align-items:center; }
+@media (max-width:860px){ #problem .grid{ grid-template-columns:1fr; } }
+.stat-big{ font-family:var(--font-head); font-weight:700; font-size:clamp(90px,11vw,150px); color:var(--color-teal); line-height:1; }
+.stat-cap{ font-size:19px; color:var(--color-text-soft); max-width:32ch; margin-top:14px; }
+.bullets{ display:flex; flex-direction:column; gap:26px; }
+.bullets li{ list-style:none; display:flex; gap:20px; align-items:flex-start; font-size:18px; }
+.bullets .mk{ flex:0 0 auto; margin-top:6px; }
+.mk.tri{ width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid var(--color-warn); }
+.mk.circ{ width:16px;height:16px;border-radius:50%;background:var(--color-blue-light);border:2px solid var(--color-blue); }
+.mk.drop{ width:16px;height:16px;border-radius:50% 50% 50% 0;background:var(--color-teal);transform:rotate(45deg); }
+
+/* ============ AIM & HYPOTHESIS ============ */
+.card-pair{ display:grid; grid-template-columns:1fr 1fr; gap:36px; }
+@media (max-width:860px){ .card-pair{ grid-template-columns:1fr; } }
+.panel{ border-radius:18px; padding:48px; }
+.panel.t{ background:var(--color-teal-light); }
+.panel.b{ background:var(--color-blue-light); }
+.panel .ic{ width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:28px; }
+.panel.t .ic{ background:var(--color-teal); }
+.panel.b .ic{ background:var(--color-blue); }
+.panel .ic i{ width:22px; height:22px; border-radius:50%; background:var(--color-bg); }
+.panel.b .ic i{ border-radius:50% 50% 50% 0; transform:rotate(45deg); }
+.panel h3{ font-size:24px; font-weight:700; margin-bottom:14px; }
+.panel p{ font-size:17px; line-height:1.6; color:var(--color-text); }
+
+/* ============ TURBIDITY / NTU DIAL ============ */
+#concept .grid{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:80px; align-items:center; }
+@media (max-width:860px){ #concept .grid{ grid-template-columns:1fr; } }
+.dial-card{ background:var(--color-bg); border-radius:20px; padding:46px; text-align:center; }
+.dial-wrap{ position:relative; width:220px; height:130px; margin:0 auto 8px; }
+.dial-wrap svg{ width:100%; height:100%; overflow:visible; }
+.dial-needle{ transform-origin:110px 110px; transition:transform .1s linear; }
+.dial-read{ font-family:var(--font-mono); font-size:13px; color:var(--color-text-soft); margin-top:6px; }
+.who{ margin-top:28px; padding-top:28px; border-top:1px solid var(--color-line); }
+.who .k{ font-weight:600; }
+.who .v{ font-size:20px; margin-top:6px; }
+
+/* ============ PHYSICS - pinned scroll diagram ============ */
+#physics-pin{ position:relative; height:340vh; }
+#physics-stage{ position:sticky; top:0; height:100vh; display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+#physics-stage .head{ padding:0 var(--edge); margin-bottom:8px; }
+.beam-rig{
+  margin:0 var(--edge); background:var(--color-teal-light); border-radius:20px;
+  padding:56px 60px; display:flex; align-items:center; justify-content:center; gap:0;
+  perspective:1200px;
+}
+.beam-rig .node{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.beam-rig .node.laser{ flex:0 0 150px; }
+.beam-rig .node.ldr{ flex:0 0 170px; }
+.node .dotlg{ width:34px; height:34px; border-radius:50%; background:var(--color-blue); box-shadow:0 0 0 0 transparent; }
+.node .ring{ width:34px; height:34px; border-radius:50%; border:4px solid var(--color-teal); }
+.node .cap{ font-family:var(--font-mono); font-size:12px; color:var(--color-text-soft); font-weight:600; text-align:center; }
+.beam-track{ flex:1; position:relative; height:140px; }
+.beam-line{ position:absolute; top:50%; left:0; width:100%; height:3px; background:var(--color-line); transform:translateY(-50%); border-radius:2px; overflow:hidden; }
+.beam-line i{ position:absolute; inset:0; width:0%; background:linear-gradient(90deg,var(--color-blue),var(--color-teal)); transition:width .05s linear; }
+.photon{ position:absolute; top:50%; width:14px; height:14px; margin-top:-7px; border-radius:50%; background:var(--color-teal); box-shadow:0 0 12px 3px var(--color-teal); transition:left .05s linear, opacity .2s; }
+.scatterdot{ position:absolute; top:50%; left:50%; border-radius:50%; background:var(--color-text-soft); opacity:0; transition:opacity .3s, transform .3s; }
+.caption-row{ display:flex; justify-content:space-between; margin:14px var(--edge) 0; font-family:var(--font-mono); font-size:12px; color:var(--color-text-soft); }
+#physics-stage .law{ margin:44px var(--edge) 0; display:flex; gap:44px; align-items:flex-end; }
+.law-text{ flex:0 0 auto; max-width:44ch; font-size:17px; line-height:1.55; }
+.law-bars{ flex:1; display:flex; align-items:flex-end; gap:12px; height:120px; justify-content:center; }
+.law-bars i{ width:44px; background:var(--color-blue); border-radius:5px 5px 0 0; transform:scaleY(0); transform-origin:bottom; transition:transform .5s cubic-bezier(.2,.7,.3,1); }
+@media (max-width:860px){ #physics-stage .law{ flex-direction:column; align-items:flex-start; } .law-bars{ width:100%; } }
+
+/* ============ SENSOR ============ */
+#sensor .grid{ display:grid; grid-template-columns:1fr 1.1fr; gap:70px; align-items:center; }
+@media (max-width:860px){ #sensor .grid{ grid-template-columns:1fr; } }
+.compare{ background:var(--color-bg); border-radius:20px; padding:48px; display:flex; gap:8px; }
+.compare .half{ flex:1; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; }
+.compare .div{ width:1px; background:var(--color-line); }
+.bulb{ width:100px; height:100px; border-radius:50%; }
+.bulb.bright{ background:radial-gradient(circle, oklch(0.95 0.05 90), oklch(0.85 0.09 85)); border:3px solid var(--color-warn); }
+.bulb.dark{ background:oklch(0.3 0.02 250); border:3px solid var(--color-line); }
+.compare h4{ font-size:19px; font-weight:700; }
+.rval{ font-size:17px; font-weight:700; }
+.rval.low{ color:var(--color-teal); }
+.rval.high{ color:var(--color-blue); }
+.compare .unit{ font-family:var(--font-mono); font-size:12px; color:var(--color-text-soft); }
+
+/* ============ APPARATUS - 3D tilt card ============ */
+#apparatus .layout{ display:grid; grid-template-columns:1.5fr 1fr; gap:56px; }
+@media (max-width:900px){ #apparatus .layout{ grid-template-columns:1fr; } }
+.tilt-wrap{ perspective:1600px; }
+.tilt-card{
+  border:2px dashed var(--color-line); border-radius:20px; padding:44px 30px 58px;
+  position:relative; transform-style:preserve-3d; transition:transform .3s cubic-bezier(.2,.7,.3,1);
+  will-change:transform;
+}
+.tilt-card .tag{ position:absolute; top:16px; left:28px; font-family:var(--font-mono); font-size:11px; color:var(--color-text-soft); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+.tilt-inner{ display:flex; align-items:center; justify-content:space-between; transform:translateZ(40px); }
+.tilt-node{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.tilt-node .cap{ font-family:var(--font-mono); font-size:12px; font-weight:600; text-align:center; }
+.jar{ width:86px; height:112px; border:4px solid var(--color-teal); border-radius:8px; background:var(--color-teal-light); position:relative; overflow:hidden; }
+.jar .fill{ position:absolute; bottom:0; left:0; right:0; height:58%; background:oklch(0.85 0.06 190/.6); }
+.linkbeam{ flex:1; height:3px; margin:0 8px; background:linear-gradient(90deg,transparent,var(--color-blue) 45%,transparent); }
+.mmeter{ display:flex; justify-content:flex-end; margin-top:26px; transform:translateZ(20px); }
+.mmeter .chip{ padding:12px 20px; border-radius:10px; background:var(--color-bg-dark); color:var(--color-on-dark); font-family:var(--font-mono); font-size:12px; font-weight:600; }
+.materials h3{ font-size:22px; font-weight:700; margin-bottom:22px; }
+.materials ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:15px; }
+.materials li{ display:flex; gap:14px; align-items:center; font-size:16px; }
+.materials li::before{ content:""; width:8px; height:8px; border-radius:50%; background:var(--color-teal); flex:0 0 auto; }
+
+/* ============ METHOD & RESULTS ============ */
+.method-body{ display:flex; flex-direction:column; gap:40px; }
+.steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:22px; }
+@media (max-width:760px){ .steps{ grid-template-columns:1fr 1fr; } }
+.step .num{ width:40px; height:40px; border-radius:50%; background:var(--color-blue); color:var(--color-on-dark); display:flex; align-items:center; justify-content:center; font-family:var(--font-head); font-weight:700; font-size:17px; margin-bottom:12px; }
+.step p{ font-size:15.5px; }
+table.datatable{ width:100%; border-collapse:collapse; font-size:15.5px; }
+table.datatable thead td{ padding:15px 16px; font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:600; color:var(--color-on-dark); background:var(--color-bg-dark); }
+table.datatable thead td:first-child{ border-radius:8px 0 0 8px; }
+table.datatable thead td:last-child{ border-radius:0 8px 8px 0; }
+table.datatable tbody td{ padding:18px 16px; border-bottom:1px solid var(--color-line); }
+table.datatable tbody tr:last-child td{ border-bottom:none; }
+.tag-pill{ font-weight:700; font-family:var(--font-mono); font-size:13px; }
+.tag-pill.low{ color:var(--color-teal); } .tag-pill.med{ color:var(--color-blue); } .tag-pill.hi{ color:var(--color-warn); }
+
+/* ============ APPLICATIONS ============ */
+.tiles{ display:grid; grid-template-columns:repeat(5,1fr); gap:22px; }
+@media (max-width:960px){ .tiles{ grid-template-columns:repeat(2,1fr); } }
+.tile{ background:var(--color-bg); border-radius:16px; padding:32px 22px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:18px; }
+.tile .shape{ width:56px; height:56px; }
+.tile p{ font-size:14px; line-height:1.45; color:var(--color-text); }
+
+/* ============ CONCLUSION ============ */
+.close-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:40px; }
+@media (max-width:860px){ .close-grid{ grid-template-columns:1fr; } }
+.close-grid h4{ color:var(--color-teal); font-size:20px; font-weight:700; margin-bottom:14px; }
+.close-grid p{ color:var(--color-on-dark-soft); font-size:16px; line-height:1.6; }
+.close-grid .lead p{ color:var(--color-on-dark); }
+footer{ background:var(--color-bg-dark); padding:60px var(--edge) 70px; border-top:1px solid oklch(0.4 0.03 235); display:flex; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-on-dark-soft); letter-spacing:.04em; }
+
+/* reduced motion */
+@media (prefers-reduced-motion:reduce){
+  html{ scroll-behavior:auto; }
+  [data-reveal]{ opacity:1; transform:none; transition:none; }
+  .chev{ animation:none; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav id="railnav"></nav>
+
+<!-- ============ 01 HERO ============ -->
+<section id="hero" class="on-dark" data-sec="Title">
+  <div class="field">
+    <div class="glow" data-parallax="0.08"></div>
+    <div class="sweep" style="top:30%;" data-parallax="0.03"></div>
+    <div class="sweep" style="top:68%; background:linear-gradient(90deg,transparent,var(--color-blue),transparent); animation-delay:2.5s;" data-parallax="-0.03"></div>
+  </div>
+  <div class="scene">
+    <div class="kicker" data-reveal>
+      <div class="diamond"></div>
+      <div class="beamline"></div>
+      <span>STEAM Project</span>
+    </div>
+    <h1 data-reveal style="transition-delay:.08s">Laser-LDR Turbidity Tester<small>A fluid purity tester built from a laser pointer and a light sensor</small></h1>
+    <p class="dek" data-reveal style="transition-delay:.16s">A low-cost way to detect how clean water really is - using nothing more exotic than light and its own attenuation.</p>
+    <div class="meta" data-reveal style="transition-delay:.24s">
+      <div><span class="k">Student Team</span><span class="v">Anay, Aarnav, Govind, Manan</span></div>
+      <div><span class="k">Class</span><span class="v">9-12th, CBSE</span></div>
+      <div><span class="k">School</span><span class="v">Bodhi International School</span></div>
+    </div>
+  </div>
+  <div id="scrollcue"><span class="chev"></span> Scroll to read the study</div>
+</section>
+
+<!-- ============ 02 PROBLEM ============ -->
+<section id="problem" data-sec="The Problem">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>02 - The Problem</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">Why water purity matters</h2>
+    <div class="grid fill-below">
+      <div data-reveal>
+        <div class="stat-big" data-count="2" data-suffix="B">0</div>
+        <div class="stat-cap">people lack access to safely managed drinking water worldwide (WHO/UNICEF)</div>
+      </div>
+      <ul class="bullets" data-reveal style="transition-delay:.1s">
+        <li><span class="mk tri"></span><span>Cloudy (turbid) water can hide bacteria, silt, and pollutants</span></li>
+        <li><span class="mk circ"></span><span>Standard lab testing is slow, expensive, and needs specialised equipment</span></li>
+        <li><span class="mk drop"></span><span>We need a cheap, fast method that anyone can build and use</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 AIM & HYPOTHESIS ============ -->
+<section id="hypothesis" data-sec="Aim &amp; Hypothesis">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>03 - Aim &amp; Hypothesis</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">What we set out to test</h2>
+    <div class="card-pair fill-below">
+      <div class="panel t" data-reveal><div class="ic"><i></i></div><h3>Aim</h3><p>Build a device that measures water purity by shining a laser through a water sample and detecting how much light passes through.</p></div>
+      <div class="panel b" data-reveal style="transition-delay:.1s"><div class="ic"><i></i></div><h3>Hypothesis</h3><p>Cleaner water lets more light through, so the LDR's resistance will be <b>low</b> for pure water and <b>high</b> for muddy or dirty water.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 CONCEPT / NTU DIAL ============ -->
+<section id="concept" class="on-tint" data-sec="Turbidity">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>04 - The Core Concept</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">Turbidity: a measure of cloudiness</h2>
+    <div class="grid fill-below">
+      <div style="display:flex; flex-direction:column; gap:22px;" data-reveal>
+        <p style="font-size:18px; line-height:1.6; max-width:46ch;"><b>Turbidity</b> is the cloudiness of water caused by suspended particles - mud, silt, and microbes.</p>
+        <p style="font-size:18px; line-height:1.6; max-width:46ch;">More particles scatter and absorb more light, so less light passes straight through - that drop is exactly what the dial to the right tracks as you scroll.</p>
+      </div>
+      <div class="dial-card" data-reveal style="transition-delay:.1s">
+        <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--color-text-soft); margin-bottom:6px;">Measured in</div>
+        <div style="font-size:42px; font-weight:700; font-family:var(--font-head); color:var(--color-teal); line-height:1;">NTU</div>
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--color-text-soft); margin-bottom:20px;">Nephelometric Turbidity Units</div>
+        <div class="dial-wrap">
+          <svg viewBox="0 0 220 130">
+            <path d="M10,110 A100,100 0 0 1 210,110" fill="none" stroke="var(--color-line)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M10,110 A100,100 0 0 1 210,110" fill="none" stroke="var(--color-teal)" stroke-width="12" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="235" id="dial-arc"/>
+            <g class="dial-needle" id="dial-needle" style="transform:rotate(-90deg)">
+              <line x1="110" y1="110" x2="110" y2="26" stroke="var(--color-blue)" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="110" cy="110" r="7" fill="var(--color-blue)"/>
+            </g>
+          </svg>
+        </div>
+        <div class="dial-read" id="dial-read">0.0 NTU · clean sample</div>
+        <div class="who">
+          <div class="k">WHO Guideline</div>
+          <div class="v">Below <b>5 NTU</b>, ideally under <b>1 NTU</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 PHYSICS - pinned ============ -->
+<section id="physics" data-sec="The Physics">
+  <div id="physics-pin">
+    <div id="physics-stage">
+      <div class="head" style="max-width:1280px; margin:0 auto; width:100%; padding:0 var(--edge);">
+        <div class="eyebrow" style="margin-bottom:10px;">05 - The Physics</div>
+        <h2 class="h-sec" style="margin-bottom:0;">How light behaves in water</h2>
+      </div>
+      <div style="height:34px;"></div>
+      <div class="beam-rig">
+        <div class="node laser"><div class="dotlg" id="p-laser"></div><div class="cap">Laser</div></div>
+        <div class="beam-track" id="p-track">
+          <div class="beam-line"><i id="p-fill"></i></div>
+          <div class="photon" id="p-photon" style="left:0%"></div>
+        </div>
+        <div class="node ldr"><div class="ring" id="p-ldr"></div><div class="cap">LDR<br>(less light reaches it)</div></div>
+      </div>
+      <div class="caption-row"><span id="physics-caption">Pure water - light travels almost unscattered</span><span id="physics-pct">0%</span></div>
+      <div class="law">
+        <div class="law-text"><b>Beer-Lambert Law (simplified):</b> the more particles, and the longer the light's path through them, the more the intensity drops - falling off exponentially.</div>
+        <div class="law-bars">
+          <i style="height:150px;"></i><i style="height:100px;"></i><i style="height:62px;"></i><i style="height:34px;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 SENSOR ============ -->
+<section id="sensor" class="on-tint-b" data-sec="The Sensor">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>06 - The Sensor</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">LDR: light dependent resistor</h2>
+    <div class="grid fill-below">
+      <div style="display:flex; flex-direction:column; gap:22px;" data-reveal>
+        <p style="font-size:18px; line-height:1.6;">An LDR is a sensor whose electrical resistance changes with the amount of light hitting it.</p>
+        <p style="font-size:18px; line-height:1.6;">Its resistance is a direct proxy for how much light reached it - exactly what we need to measure.</p>
+      </div>
+      <div class="compare" data-reveal style="transition-delay:.1s">
+        <div class="half"><div class="bulb bright"></div><h4>Bright Light</h4><div class="rval low">Low Resistance</div><div class="unit">~ a few hundred Ω</div></div>
+        <div class="div"></div>
+        <div class="half"><div class="bulb dark"></div><h4>Darkness</h4><div class="rval high">High Resistance</div><div class="unit">~ megohms (MΩ)</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 APPARATUS - 3D tilt ============ -->
+<section id="apparatus" data-sec="Apparatus">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>07 - Apparatus &amp; Setup</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">Inside the dark chamber</h2>
+    <div class="layout fill-below">
+      <div class="tilt-wrap" data-reveal>
+        <div class="tilt-card" id="tiltcard">
+          <div class="tag">Cardboard box - blocks outside light</div>
+          <div class="tilt-inner">
+            <div class="tilt-node"><div class="dotlg"></div><div class="cap">Laser Pointer</div></div>
+            <div class="linkbeam"></div>
+            <div class="tilt-node"><div class="jar"><div class="fill"></div></div><div class="cap">Water Sample<br>(glass container)</div></div>
+            <div class="linkbeam"></div>
+            <div class="tilt-node"><div class="ring"></div><div class="cap">LDR</div></div>
+          </div>
+          <div class="mmeter"><div class="chip">Multimeter (Ω)</div></div>
+        </div>
+      </div>
+      <div class="materials" data-reveal style="transition-delay:.1s">
+        <h3>Materials</h3>
+        <ul>
+          <li>Cardboard box (dark chamber)</li>
+          <li>Laser pointer module</li>
+          <li>Transparent glass container</li>
+          <li>LDR (Light Dependent Resistor)</li>
+          <li>Multimeter &amp; connecting wires</li>
+          <li>Water samples to test</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 08 METHOD & RESULTS ============ -->
+<section id="method" data-sec="Method">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>08 - Method &amp; Expected Results</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">Running the experiment</h2>
+    <div class="method-body fill-below">
+      <div class="steps">
+        <div class="step" data-reveal style="transition-delay:0s"><div class="num">1</div><p>Pour a sample into the container</p></div>
+        <div class="step" data-reveal style="transition-delay:.06s"><div class="num">2</div><p>Switch on the laser</p></div>
+        <div class="step" data-reveal style="transition-delay:.12s"><div class="num">3</div><p>Record the LDR resistance on the multimeter</p></div>
+        <div class="step" data-reveal style="transition-delay:.18s"><div class="num">4</div><p>Repeat for each water sample</p></div>
+      </div>
+      <div style="overflow-x:auto; transition-delay:.2s" data-reveal>
+        <table class="datatable">
+          <thead><tr><td>Water Sample</td><td>Clarity</td><td>Light Reaching LDR</td><td>LDR Resistance</td></tr></thead>
+          <tbody>
+            <tr><td>Distilled / clean water</td><td class="tag-pill low">High</td><td class="tag-pill low">High</td><td class="tag-pill low">Low</td></tr>
+            <tr><td>Tap water</td><td class="tag-pill med">Medium</td><td class="tag-pill med">Medium</td><td class="tag-pill med">Medium</td></tr>
+            <tr><td>Muddy water</td><td class="tag-pill hi">Low</td><td class="tag-pill hi">Low</td><td class="tag-pill hi">High</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 09 APPLICATIONS ============ -->
+<section id="applications" class="on-tint" data-sec="Applications">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>09 - Real-Life Applications</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s">Where turbidity testing is used</h2>
+    <div class="tiles fill-below">
+      <div class="tile" data-reveal style="transition-delay:0s"><div class="shape" style="border-radius:50% 50% 50% 0;background:var(--color-teal);transform:rotate(45deg);"></div><p>Water treatment plants check clarity before &amp; after filtration</p></div>
+      <div class="tile" data-reveal style="transition-delay:.05s"><div class="shape" style="border-radius:12px;background:var(--color-blue);transform:rotate(45deg);"></div><p>Environmental agencies monitor rivers, lakes &amp; groundwater</p></div>
+      <div class="tile" data-reveal style="transition-delay:.1s"><div class="shape" style="border-radius:50%;border:6px solid var(--color-teal);"></div><p>Pools &amp; aquariums track water clarity for safety</p></div>
+      <div class="tile" data-reveal style="transition-delay:.15s"><div class="shape" style="border-radius:0 0 24px 24px;background:var(--color-blue); width:48px; margin:0 auto;"></div><p>Food &amp; beverage checks clarity of juice, beer &amp; milk</p></div>
+      <div class="tile" data-reveal style="transition-delay:.2s"><div class="shape" style="width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:40px solid var(--color-teal); margin:0 auto;"></div><p>Wastewater plants confirm treatment before discharge</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 CONCLUSION ============ -->
+<section id="conclusion" class="on-dark" data-sec="Conclusion">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>10 - Conclusion &amp; Future Scope</div>
+    <h2 class="h-sec" data-reveal style="transition-delay:.05s; color:var(--color-on-dark); max-width:22ch;">What we learned, and what's next</h2>
+    <div class="close-grid fill-below">
+      <div class="lead" data-reveal><h4>Summary</h4><p>A cheap, quick, and reasonably accurate way to compare water purity using light.</p></div>
+      <div data-reveal style="transition-delay:.08s"><h4>Limitations</h4><p>Gives relative, not exact, NTU readings - affected by water colour and stray light.</p></div>
+      <div data-reveal style="transition-delay:.16s"><h4>Future Scope</h4><p>Calibrate against a real turbidity meter, and add an Arduino with a digital display for automatic readings.</p></div>
+    </div>
+  </div>
+  <footer>
+    <div class="fmeta">Laser-LDR Turbidity Tester · Bodhi International School · CBSE 9-12th</div>
+    <div class="fmeta">Anay · Aarnav · Govind · Manan</div>
+  </footer>
+</section>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---- progress bar ---- */
+  var progress = document.getElementById('progress');
+  function updateProgress(){
+    var h = document.documentElement;
+    var scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    progress.style.width = (scrolled*100).toFixed(2) + '%';
+  }
+
+  /* ---- side rail nav ---- */
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section[data-sec]'));
+  var rail = document.getElementById('railnav');
+  sections.forEach(function(sec){
+    var btn = document.createElement('button');
+    btn.innerHTML = '<span class="dot"></span><span class="lbl">'+sec.getAttribute('data-sec')+'</span>';
+    btn.addEventListener('click', function(){ sec.scrollIntoView({behavior:'smooth'}); });
+    btn.dataset.target = sec.id;
+    rail.appendChild(btn);
+  });
+  var railBtns = Array.prototype.slice.call(rail.children);
+
+  var activeObserver = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      var btn = railBtns.find(function(b){ return b.dataset.target === entry.target.id; });
+      if(!btn) return;
+      if(entry.isIntersecting) btn.setAttribute('data-active','true');
+      else btn.removeAttribute('data-active');
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+  sections.forEach(function(s){ activeObserver.observe(s); });
+
+  /* ---- reveal on scroll ---- */
+  var revealObserver = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting){ entry.target.classList.add('in'); revealObserver.unobserve(entry.target); }
+    });
+  }, { threshold:0.18, rootMargin:'0px 0px -8% 0px' });
+  document.querySelectorAll('[data-reveal]').forEach(function(el){ revealObserver.observe(el); });
+
+  /* ---- count-up stat (e.g. the "2B" figure) ---- */
+  var countObserver = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      var el = entry.target;
+      var target = parseFloat(el.getAttribute('data-count'));
+      var suffix = el.getAttribute('data-suffix') || '';
+      countObserver.unobserve(el);
+      var start = null, duration = 1100;
+      function step(ts){
+        if(start === null) start = ts;
+        var t = Math.min(1, (ts - start) / duration);
+        var eased = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(eased * target) + suffix;
+        if(t < 1) window.requestAnimationFrame(step);
+      }
+      window.requestAnimationFrame(step);
+    });
+  }, { threshold:0.4 });
+  document.querySelectorAll('[data-count]').forEach(function(el){ countObserver.observe(el); });
+
+  /* ---- hero parallax depth ---- */
+  var parallaxEls = Array.prototype.slice.call(document.querySelectorAll('[data-parallax]'));
+  var hero = document.getElementById('hero');
+
+  /* ---- physics pinned scroll-driven diagram ---- */
+  var pin = document.getElementById('physics-pin');
+  var fill = document.getElementById('p-fill');
+  var photon = document.getElementById('p-photon');
+  var caption = document.getElementById('physics-caption');
+  var pct = document.getElementById('physics-pct');
+  var track = document.getElementById('p-track');
+  var scatterDots = [];
+  (function buildScatter(){
+    var specs = [
+      {x:-46,y:-32,s:12,rot:0,ln:false},
+      {x:8,y:16,s:9,rot:0,ln:false},
+      {x:-16,y:24,s:10,rot:0,ln:false},
+      {x:-32,y:-48,s:64,rot:-32,ln:true},
+      {x:-8,y:40,s:64,rot:28,ln:true},
+      {x:-24,y:-36,s:56,rot:58,ln:true}
+    ];
+    specs.forEach(function(sp){
+      var d = document.createElement('div');
+      d.className = 'scatterdot';
+      if(sp.ln){ d.style.width=sp.s+'px'; d.style.height='2px'; d.style.background='var(--color-teal)'; }
+      else { d.style.width=sp.s+'px'; d.style.height=sp.s+'px'; d.style.background='var(--color-text-soft)'; }
+      d.style.transform = 'translate('+sp.x+'px,'+sp.y+'px) rotate('+sp.rot+'deg)';
+      track.appendChild(d);
+      scatterDots.push(d);
+    });
+  })();
+  var law = document.getElementById('physics-stage') ? document.querySelector('.law-bars') : null;
+  var lawBars = law ? Array.prototype.slice.call(law.children) : [];
+  var lawShown = false;
+
+  var captions = [
+    'Pure water - light travels almost unscattered',
+    'Tap water - mild scattering begins',
+    'Turbid water - most light is scattered or absorbed'
+  ];
+
+  function updatePhysics(){
+    var rect = pin.getBoundingClientRect();
+    var total = rect.height - window.innerHeight;
+    var raw = -rect.top / total;
+    var p = Math.min(1, Math.max(0, raw));
+
+    fill.style.width = (100 - p*78) + '%';
+    photon.style.left = (p*96) + '%';
+    photon.style.opacity = p > 0.02 && p < 0.98 ? 1 : 0;
+
+    var scatterStrength = p;
+    scatterDots.forEach(function(d, i){
+      d.style.opacity = scatterStrength > 0.15 ? Math.min(0.8, scatterStrength) : 0;
+    });
+
+    var capIndex = p < 0.32 ? 0 : (p < 0.68 ? 1 : 2);
+    if(caption.dataset.i != capIndex){ caption.textContent = captions[capIndex]; caption.dataset.i = capIndex; }
+    pct.textContent = Math.round(p*100) + '% through sample';
+
+    if(p > 0.55 && !lawShown){
+      lawShown = true;
+      lawBars.forEach(function(bar){ bar.style.transform = 'scaleY(1)'; });
+    } else if(p <= 0.55 && lawShown){
+      lawShown = false;
+      lawBars.forEach(function(bar){ bar.style.transform = 'scaleY(0)'; });
+    }
+  }
+
+  /* ---- NTU dial driven by scroll position within #concept ---- */
+  var concept = document.getElementById('concept');
+  var needle = document.getElementById('dial-needle');
+  var dialRead = document.getElementById('dial-read');
+  function updateDial(){
+    var rect = concept.getBoundingClientRect();
+    var vh = window.innerHeight;
+    var p = 1 - Math.min(1, Math.max(0, (rect.top + rect.height*0.5) / (vh + rect.height*0.5)));
+    p = Math.min(1, Math.max(0, p));
+    var deg = -90 + p*180;
+    needle.style.transform = 'rotate(' + deg + 'deg)';
+    var ntu = (p*38).toFixed(1);
+    var label = p < 0.34 ? 'clean sample' : (p < 0.7 ? 'tap-water range' : 'above WHO limit');
+    dialRead.textContent = ntu + ' NTU · ' + label;
+  }
+
+  /* ---- scroll loop ----
+     Runs the DOM writes directly off the scroll event (rAF-throttled where
+     available, with a direct fallback) so the diagrams stay in sync even in
+     contexts that stall requestAnimationFrame for a hidden/backgrounded tab. */
+  var ticking = false;
+  var hasRaf = typeof window.requestAnimationFrame === 'function';
+  function applyFrame(){
+    updateProgress();
+    updatePhysics();
+    updateDial();
+
+    var hr = hero.getBoundingClientRect();
+    if(hr.bottom > 0){
+      parallaxEls.forEach(function(el){
+        var factor = parseFloat(el.getAttribute('data-parallax')) || 0;
+        el.style.transform = 'translateY(' + (-hr.top * factor) + 'px)';
+      });
+    }
+    ticking = false;
+  }
+  function onScroll(){
+    if(ticking) return;
+    ticking = true;
+    if(hasRaf) window.requestAnimationFrame(applyFrame);
+    else applyFrame();
+  }
+  window.addEventListener('scroll', onScroll, { passive:true });
+  onScroll();
+
+  /* ---- 3D pointer tilt on apparatus card ---- */
+  var tiltCard = document.getElementById('tiltcard');
+  if(window.matchMedia('(hover:hover)').matches){
+    tiltCard.addEventListener('mousemove', function(e){
+      var r = tiltCard.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width - 0.5;
+      var py = (e.clientY - r.top) / r.height - 0.5;
+      tiltCard.style.transform = 'rotateY(' + (px*10) + 'deg) rotateX(' + (-py*10) + 'deg)';
+    });
+    tiltCard.addEventListener('mouseleave', function(){
+      tiltCard.style.transform = 'rotateY(0deg) rotateX(0deg)';
+    });
+  }
+})();
+</script>
+</body>
+</html>
