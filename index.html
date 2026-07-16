@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Laser-LDR Turbidity Tester - A Water Purity Study</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -345,13 +345,13 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
    full panel. No separate launcher button - the header bar itself is the
    toggle, so there's always exactly one persistent, tappable element. */
 #chat-panel{
-  position:fixed; right:22px; bottom:22px; z-index:80;
+  position:fixed; right:22px; bottom:calc(22px + var(--kb-offset, 0px)); z-index:80;
   width:380px; max-width:calc(100vw - 44px);
   height:64px;
   background:var(--color-bg); border-radius:16px; overflow:hidden;
   box-shadow:0 20px 60px oklch(0.1 0.02 240 / .3), 0 0 0 1px var(--color-line);
   display:flex; flex-direction:column;
-  transition:height .28s cubic-bezier(.2,.7,.3,1);
+  transition:height .28s cubic-bezier(.2,.7,.3,1), bottom .15s ease;
   font-family:var(--font-body);
 }
 #chat-panel[data-open="true"]{
@@ -418,7 +418,7 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
 
 @media (max-width:640px){
   #chat-panel{
-    right:0; left:0; bottom:0; width:100%; max-width:100%;
+    right:0; left:0; bottom:var(--kb-offset, 0px); width:100%; max-width:100%;
     height:calc(60px + env(safe-area-inset-bottom));
     border-radius:20px 20px 0 0;
   }
@@ -753,6 +753,26 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && panel.dataset.open === 'true') closePanel(); });
 
   addMessage('bot', "Hi! I'm here to answer questions about this project - the physics, the apparatus, the results, or how turbidity testing is used in the real world. What would you like to know?");
+
+  /* ---- keep the panel above the on-screen keyboard ----
+     Android Chrome (without interactive-widget=resizes-content support, or
+     on older versions) overlays the keyboard on top of the layout viewport
+     instead of shrinking it, so a bottom:0 fixed element gets covered. The
+     VisualViewport API reports the real visible area, which we use to push
+     the panel up by however much the keyboard is covering. */
+  if(window.visualViewport){
+    var vv = window.visualViewport;
+    function updateKbOffset(){
+      var covered = window.innerHeight - vv.height - vv.offsetTop;
+      panel.style.setProperty('--kb-offset', Math.max(0, Math.round(covered)) + 'px');
+      if(panel.dataset.open === 'true') messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    vv.addEventListener('resize', updateKbOffset);
+    vv.addEventListener('scroll', updateKbOffset);
+  }
+  input.addEventListener('focus', function(){
+    setTimeout(function(){ input.scrollIntoView({ block:'nearest', behavior:'smooth' }); }, 300);
+  });
 
   input.addEventListener('input', function(){
     input.style.height = 'auto';
