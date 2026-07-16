@@ -29,7 +29,7 @@ const server = createServer((req, res) => {
   req.on('end', async () => {
     try {
       const { messages } = body ? JSON.parse(body) : {};
-      const reply = await handleChat(messages, process.env.XAI_API_KEY, process.env.XAI_MODEL);
+      const reply = await handleChat(messages, process.env.GROQ_API_KEY, process.env.GROQ_MODEL);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ reply }));
     } catch (err) {
@@ -42,7 +42,7 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[dev-api] chat proxy listening on http://localhost:${PORT}`);
-  if (!process.env.XAI_API_KEY) {
-    console.warn('[dev-api] WARNING: XAI_API_KEY is not set. Run with: node --env-file=.env.local server-dev.js');
+  if (!process.env.GROQ_API_KEY) {
+    console.warn('[dev-api] WARNING: GROQ_API_KEY is not set. Run with: node --env-file=.env.local server-dev.js');
   }
 });

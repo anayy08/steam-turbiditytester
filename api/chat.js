@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   try {
     const { messages } = req.body || {};
-    const reply = await handleChat(messages, process.env.XAI_API_KEY, process.env.XAI_MODEL);
+    const reply = await handleChat(messages, process.env.GROQ_API_KEY, process.env.GROQ_MODEL);
     return res.status(200).json({ reply });
   } catch (err) {
     const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
