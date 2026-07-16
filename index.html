@@ -340,32 +340,41 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
   .chev{ animation:none; }
 }
 
-/* ============ CHAT WIDGET (visible by default, no launcher button) ============ */
+/* ============ CHAT WIDGET ============
+   Collapsed by default to just the header "tab"; tapping it expands the
+   full panel. No separate launcher button - the header bar itself is the
+   toggle, so there's always exactly one persistent, tappable element. */
 #chat-panel{
   position:fixed; right:22px; bottom:22px; z-index:80;
   width:380px; max-width:calc(100vw - 44px);
-  height:min(560px, calc(100vh - 64px)); height:min(560px, calc(100svh - 64px));
-  background:var(--color-bg); border-radius:18px; overflow:hidden;
+  height:64px;
+  background:var(--color-bg); border-radius:16px; overflow:hidden;
   box-shadow:0 20px 60px oklch(0.1 0.02 240 / .3), 0 0 0 1px var(--color-line);
   display:flex; flex-direction:column;
-  opacity:1; transform:translateY(0) scale(1); pointer-events:auto;
-  transition:opacity .22s ease, transform .22s cubic-bezier(.2,.7,.3,1);
+  transition:height .28s cubic-bezier(.2,.7,.3,1);
   font-family:var(--font-body);
 }
-#chat-panel[data-open="false"]{ opacity:0; transform:translateY(16px) scale(.98); pointer-events:none; }
+#chat-panel[data-open="true"]{
+  height:min(560px, calc(100vh - 64px)); height:min(560px, calc(100svh - 64px));
+}
 
 .chat-head{
+  all:unset; box-sizing:border-box; cursor:pointer;
   flex:0 0 auto; background:var(--color-bg-dark); color:var(--color-on-dark);
-  padding:16px 18px; display:flex; align-items:center; gap:12px;
+  padding:16px 18px; width:100%; display:flex; align-items:center; gap:12px;
 }
 .chat-head .dotlg{ width:10px; height:10px; border-radius:50%; background:var(--color-teal); flex:0 0 auto; box-shadow:0 0 8px 2px var(--color-teal); }
-.chat-head .ttl{ flex:1; min-width:0; }
+.chat-head .ttl{ flex:1; min-width:0; text-align:left; }
 .chat-head .ttl b{ display:block; font-size:14px; font-weight:600; }
 .chat-head .ttl span{ display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--color-on-dark-soft); letter-spacing:.04em; margin-top:2px; }
-.chat-head button{
-  all:unset; cursor:pointer; color:var(--color-on-dark-soft); padding:4px; display:flex; border-radius:6px;
+.chat-head .chev{ flex:0 0 auto; color:var(--color-on-dark-soft); transition:transform .25s cubic-bezier(.2,.7,.3,1); }
+#chat-panel[data-open="true"] .chat-head .chev{ transform:rotate(180deg); }
+
+.chat-body{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  opacity:0; transition:opacity .15s ease;
 }
-.chat-head button:hover{ color:var(--color-on-dark); }
+#chat-panel[data-open="true"] .chat-body{ opacity:1; transition-delay:.1s; }
 
 .chat-messages{
   flex:1; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:12px;
@@ -410,12 +419,12 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
 @media (max-width:640px){
   #chat-panel{
     right:0; left:0; bottom:0; width:100%; max-width:100%;
-    height:min(38dvh, 320px); max-height:38dvh;
+    height:calc(60px + env(safe-area-inset-bottom));
     border-radius:20px 20px 0 0;
-    transform:translateY(0) scale(1);
   }
-  #chat-panel[data-open="false"]{ transform:translateY(100%) scale(1); }
-  .chat-head{ padding:12px 16px calc(10px + env(safe-area-inset-top,0px)) 16px; }
+  #chat-panel[data-open="true"]{ height:min(46dvh, 380px); max-height:46dvh; }
+  .chat-head{ padding:12px 16px calc(10px + env(safe-area-inset-top,0px)) 16px; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+  #chat-panel[data-open="true"] .chat-head{ padding-bottom:12px; }
   .chat-msg{ max-width:92%; font-size:13px; padding:9px 12px; }
   .chat-messages{ padding:10px 14px 4px; gap:8px; }
   .chat-suggest{ display:none; }
@@ -658,28 +667,28 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
 </section>
 
 <!-- ============ CHAT WIDGET (open by default, no launcher button) ============ -->
-<div id="chat-panel" data-open="true" role="dialog" aria-modal="false" aria-labelledby="chat-panel-title">
-  <div class="chat-head">
+<div id="chat-panel" data-open="false" role="dialog" aria-modal="false" aria-labelledby="chat-panel-title">
+  <button id="chat-toggle" class="chat-head" aria-expanded="false" aria-controls="chat-body">
     <div class="dotlg" aria-hidden="true"></div>
     <div class="ttl">
       <b id="chat-panel-title">Ask about this project</b>
       <span>Turbidity, LDRs, light &amp; water science</span>
     </div>
-    <button id="chat-close" aria-label="Close chat">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-  <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
-  <div id="chat-suggest" class="chat-suggest">
-    <button type="button">What is turbidity?</button>
-    <button type="button">How does the LDR work?</button>
-    <button type="button">Why use a laser?</button>
-  </div>
-  <div class="chat-input-row">
-    <textarea id="chat-input" rows="1" placeholder="Ask a question..." aria-label="Type your question"></textarea>
-    <button id="chat-send" aria-label="Send message">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
+    <svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+  <div id="chat-body" class="chat-body">
+    <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+    <div id="chat-suggest" class="chat-suggest">
+      <button type="button">What is turbidity?</button>
+      <button type="button">How does the LDR work?</button>
+      <button type="button">Why use a laser?</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" rows="1" placeholder="Ask a question..." aria-label="Type your question"></textarea>
+      <button id="chat-send" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -687,9 +696,9 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
 (function(){
   "use strict";
 
-  /* ---- chat widget (open by default, closable, no launcher button) ---- */
+  /* ---- chat widget: collapsed tab by default, header toggles full panel ---- */
   var panel = document.getElementById('chat-panel');
-  var closeBtn = document.getElementById('chat-close');
+  var toggleBtn = document.getElementById('chat-toggle');
   var messagesEl = document.getElementById('chat-messages');
   var suggestEl = document.getElementById('chat-suggest');
   var input = document.getElementById('chat-input');
@@ -720,22 +729,28 @@ footer .fmeta{ font-family:var(--font-mono); font-size:12px; color:var(--color-o
     }
   }
 
-  /* Belt-and-suspenders: set the hidden state via inline style in addition
-     to the [data-open="false"] CSS attribute selector. Some embedded/dev
-     rendering contexts don't reliably re-match attribute selectors after a
-     JS attribute mutation - inline styles have the highest specificity and
-     always win, so this keeps the close action bulletproof everywhere. */
+  /* Belt-and-suspenders: set height via inline style in addition to the
+     [data-open] CSS attribute selector. Some embedded/dev rendering
+     contexts don't reliably re-match attribute selectors after a JS
+     attribute mutation - inline styles have the highest specificity and
+     always win, so this keeps the toggle bulletproof everywhere. */
+  function isMobile(){ return window.matchMedia('(max-width:640px)').matches; }
+  function openPanel(){
+    panel.dataset.open = 'true';
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    panel.style.height = isMobile() ? 'min(46dvh, 380px)' : 'min(560px, calc(100svh - 64px))';
+    setTimeout(function(){ input.focus({ preventScroll:true }); }, 300);
+  }
   function closePanel(){
     panel.dataset.open = 'false';
-    panel.style.opacity = '0';
-    panel.style.pointerEvents = 'none';
-    panel.style.transform = window.matchMedia('(max-width:640px)').matches
-      ? 'translateY(100%) scale(1)'
-      : 'translateY(16px) scale(.98)';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    panel.style.height = isMobile() ? 'calc(60px + env(safe-area-inset-bottom))' : '64px';
   }
 
-  closeBtn.addEventListener('click', closePanel);
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && panel.dataset.open !== 'false') closePanel(); });
+  toggleBtn.addEventListener('click', function(){
+    panel.dataset.open === 'true' ? closePanel() : openPanel();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && panel.dataset.open === 'true') closePanel(); });
 
   addMessage('bot', "Hi! I'm here to answer questions about this project - the physics, the apparatus, the results, or how turbidity testing is used in the real world. What would you like to know?");
 
